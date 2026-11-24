@@ -1,7 +1,13 @@
 // Router SPA simple e inicialización
 class App {
     constructor() {
-        this.routes = {
+        this.currentRoute = 'dashboard';
+        // No definir routes aquí, esperar a init()
+    }
+
+    getRoutes() {
+        // Definir routes dinámicamente cuando se necesiten
+        return {
             'dashboard': { module: null, init: () => {} },
             'mesas': { 
                 module: () => window.mesasModule, 
@@ -24,8 +30,6 @@ class App {
                 init: () => window.pedidosModule?.load() 
             }
         };
-        this.currentRoute = 'dashboard';
-        this.init();
     }
 
     init() {
@@ -89,6 +93,17 @@ class App {
     }
 
     initDashboard() {
+        // Verificar que los módulos estén disponibles
+        const requiredModules = ['mesasModule', 'reservasModule', 'categoriasModule', 'productosModule', 'pedidosModule'];
+        const missing = requiredModules.filter(m => !window[m]);
+        
+        if (missing.length > 0) {
+            console.error('Módulos faltantes:', missing);
+            // Reintentar después de un breve delay
+            setTimeout(() => this.initDashboard(), 100);
+            return;
+        }
+
         // Event listeners para navegación
         document.querySelectorAll('[data-route]').forEach(link => {
             link.addEventListener('click', (e) => {
@@ -126,7 +141,8 @@ class App {
     }
 
     navigate(route) {
-        if (!this.routes[route]) route = 'dashboard';
+        const routes = this.getRoutes();
+        if (!routes[route]) route = 'dashboard';
         
         // Verificar autenticación para rutas protegidas
         if (route !== 'dashboard' && !window.auth?.isAuthenticated()) {
@@ -152,7 +168,7 @@ class App {
         window.location.hash = route;
 
         // Inicializar módulo
-        const routeConfig = this.routes[route];
+        const routeConfig = routes[route];
         if (routeConfig?.init) {
             routeConfig.init();
         }
@@ -162,4 +178,5 @@ class App {
 // Inicializar al cargar DOM
 document.addEventListener('DOMContentLoaded', () => {
     window.app = new App();
+    window.app.init();
 });
