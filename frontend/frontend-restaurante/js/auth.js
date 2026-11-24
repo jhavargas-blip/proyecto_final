@@ -82,27 +82,6 @@ class AuthModule {
             navAuth.style.display = 'flex';
         }
     }
-
-    renderLoginForm() {
-        const loginView = document.getElementById('login-view');
-        const dashboardView = document.getElementById('dashboard-view');
-        const navAuth = document.getElementById('nav-auth');
-        
-        if (loginView) loginView.style.display = 'block';
-        if (dashboardView) dashboardView.style.display = 'none';
-        if (navAuth) navAuth.style.display = 'none';
-    }
-
-    renderDashboard() {
-        const loginView = document.getElementById('login-view');
-        const dashboardView = document.getElementById('dashboard-view');
-        const navAuth = document.getElementById('nav-auth');
-        
-        if (loginView) loginView.style.display = 'none';
-        if (dashboardView) dashboardView.style.display = 'block';
-        if (navAuth) navAuth.style.display = 'flex';
-        this.renderUserInfo();
-    }
 }
 
 window.auth = new AuthModule();

@@ -1,7 +1,6 @@
 // Router SPA simple e inicialización
 class App {
     constructor() {
-        // Usar window. para acceder a variables globales definidas en otros scripts
         this.routes = {
             'dashboard': { module: null, init: () => {} },
             'mesas': { 
@@ -30,24 +29,18 @@ class App {
     }
 
     init() {
-        // Event listeners para navegación
-        document.querySelectorAll('[data-route]').forEach(link => {
-            link.addEventListener('click', (e) => {
-                e.preventDefault();
-                this.navigate(link.dataset.route);
-            });
-        });
+        // Detectar en qué página estamos
+        const isLoginPage = window.location.pathname.includes('index.html') || window.location.pathname.endsWith('/');
+        const isDashboardPage = window.location.pathname.includes('dashboard.html');
 
-        // Botones de crear - usar optional chaining
-        document.getElementById('btn-create-mesa')?.addEventListener('click', () => window.mesasModule?.openCreateModal());
-        document.getElementById('btn-create-reserva')?.addEventListener('click', () => window.reservasModule?.openCreateModal());
-        document.getElementById('btn-create-categoria')?.addEventListener('click', () => window.categoriasModule?.openCreateModal());
-        document.getElementById('btn-create-producto')?.addEventListener('click', () => window.productosModule?.openCreateModal());
-        document.getElementById('btn-create-pedido')?.addEventListener('click', () => window.pedidosModule?.openCreateModal());
+        if (isLoginPage) {
+            this.initLoginPage();
+        } else if (isDashboardPage) {
+            this.initDashboard();
+        }
+    }
 
-        // Logout
-        document.getElementById('btn-logout')?.addEventListener('click', () => window.auth?.logout());
-
+    initLoginPage() {
         // Login form
         const loginForm = document.getElementById('form-login');
         if (loginForm) {
@@ -57,29 +50,17 @@ class App {
             });
         }
 
-        // Verificar autenticación al cargar
-        this.checkAuth();
+        // Verificar si ya está autenticado
+        this.checkAuthAndRedirect();
     }
 
-    async checkAuth() {
+    async checkAuthAndRedirect() {
         const isValid = await window.auth?.validateSession();
-        const isLoginPage = window.location.pathname.includes('index.html') || window.location.pathname.endsWith('/');
-
-        if (isLoginPage) {
-            if (isValid) {
-                window.auth?.renderDashboard();
-                this.navigate('dashboard');
-            } else {
-                window.auth?.renderLoginForm();
-            }
+        if (isValid) {
+            // Redirigir a dashboard.html
+            window.location.href = 'dashboard.html';
         } else {
-            if (!isValid) {
-                window.location.href = 'index.html';
-            } else {
-                window.auth?.renderDashboard();
-                const hash = window.location.hash.slice(1) || 'dashboard';
-                this.navigate(hash);
-            }
+            window.auth?.renderLoginForm();
         }
     }
 
@@ -95,8 +76,8 @@ class App {
         try {
             await window.auth?.login(username, password);
             if (window.UI) window.UI.showSuccess('Bienvenido, ' + window.auth?.getUser()?.nombre);
-            window.auth?.renderDashboard();
-            this.navigate('dashboard');
+            // Redirigir a dashboard.html
+            window.location.href = 'dashboard.html';
         } catch (e) {
             if (errorEl) {
                 errorEl.textContent = e.message;
@@ -105,6 +86,43 @@ class App {
         } finally {
             if (window.UI) window.UI.setLoading(btn, false);
         }
+    }
+
+    initDashboard() {
+        // Event listeners para navegación
+        document.querySelectorAll('[data-route]').forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                this.navigate(link.dataset.route);
+            });
+        });
+
+        // Botones de crear
+        document.getElementById('btn-create-mesa')?.addEventListener('click', () => window.mesasModule?.openCreateModal());
+        document.getElementById('btn-create-reserva')?.addEventListener('click', () => window.reservasModule?.openCreateModal());
+        document.getElementById('btn-create-categoria')?.addEventListener('click', () => window.categoriasModule?.openCreateModal());
+        document.getElementById('btn-create-producto')?.addEventListener('click', () => window.productosModule?.openCreateModal());
+        document.getElementById('btn-create-pedido')?.addEventListener('click', () => window.pedidosModule?.openCreateModal());
+
+        // Logout
+        document.getElementById('btn-logout')?.addEventListener('click', () => window.auth?.logout());
+
+        // Verificar autenticación
+        this.checkAuthAndLoadDashboard();
+    }
+
+    async checkAuthAndLoadDashboard() {
+        const isValid = await window.auth?.validateSession();
+        if (!isValid) {
+            window.location.href = 'index.html';
+            return;
+        }
+        
+        window.auth?.renderDashboard();
+        window.auth?.renderUserInfo();
+        
+        const hash = window.location.hash.slice(1) || 'dashboard';
+        this.navigate(hash);
     }
 
     navigate(route) {
