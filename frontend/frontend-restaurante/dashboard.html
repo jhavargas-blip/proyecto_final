@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Restaurante XYZ - Panel de Control</title>
+    <link rel="stylesheet" href="css/index.css">
+    <link rel="stylesheet" href="css/dashboard.css">
+</head>
+<body>
+    <header>
+        <h1>Restaurante XYZ</h1>
+        <nav id="nav-auth" style="display:none;">
+            <span id="user-info"></span>
+            <button id="btn-logout" class="btn btn-danger">Cerrar sesión</button>
+        </nav>
+    </header>
+
+    <div class="main-container">
+        <aside class="sidebar">
+            <ul class="sidebar-nav">
+                <li><a href="#" data-route="dashboard" class="active"><span class="nav-icon">📊</span> Dashboard</a></li>
+                <li><a href="#" data-route="mesas"><span class="nav-icon">🪑</span> Mesas</a></li>
+                <li><a href="#" data-route="reservas"><span class="nav-icon">📅</span> Reservas</a></li>
+                <li><a href="#" data-route="categorias"><span class="nav-icon">📂</span> Categorías</a></li>
+                <li><a href="#" data-route="productos"><span class="nav-icon">🍽️</span> Productos</a></li>
+                <li><a href="#" data-route="pedidos"><span class="nav-icon">🧾</span> Pedidos</a></li>
+            </ul>
+        </aside>
+
+        <main class="content">
+            <!-- Dashboard View -->
+            <section id="view-dashboard" class="view" style="display:block;">
+                <div class="view-header">
+                    <h2>Panel de Control</h2>
+                </div>
+                <div class="card-grid" id="dashboard-cards">
+                    <div class="card">
+                        <h3>Mesas</h3>
+                        <p class="meta">Total: <span id="stat-mesas">0</span> | Disponibles: <span id="stat-mesas-disp">0</span></p>
+                        <div class="actions"><a href="#" data-route="mesas" class="btn btn-primary">Gestionar</a></div>
+                    </div>
+                    <div class="card">
+                        <h3>Reservas Hoy</h3>
+                        <p class="meta">Pendientes: <span id="stat-reservas-pend">0</span> | Confirmadas: <span id="stat-reservas-conf">0</span></p>
+                        <div class="actions"><a href="#" data-route="reservas" class="btn btn-primary">Gestionar</a></div>
+                    </div>
+                    <div class="card">
+                        <h3>Productos</h3>
+                        <p class="meta">Total: <span id="stat-productos">0</span> | Disponibles: <span id="stat-productos-disp">0</span></p>
+                        <div class="actions"><a href="#" data-route="productos" class="btn btn-primary">Gestionar</a></div>
+                    </div>
+                    <div class="card">
+                        <h3>Pedidos Activos</h3>
+                        <p class="meta">Pendientes: <span id="stat-pedidos-pend">0</span> | En preparación: <span id="stat-pedidos-prep">0</span></p>
+                        <div class="actions"><a href="#" data-route="pedidos" class="btn btn-primary">Gestionar</a></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Mesas View -->
+            <section id="view-mesas" class="view">
+                <div class="view-header">
+                    <h2>Gestión de Mesas</h2>
+                    <button id="btn-create-mesa" class="btn btn-primary">+ Nueva Mesa</button>
+                </div>
+                <div class="data-table-container">
+                    <table class="data-table" id="mesas-table">
+                        <thead><tr><th>Número</th><th>Capacidad</th><th>Estado</th><th>Acciones</th></tr></thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Reservas View -->
+            <section id="view-reservas" class="view">
+                <div class="view-header">
+                    <h2>Gestión de Reservas</h2>
+                    <button id="btn-create-reserva" class="btn btn-primary">+ Nueva Reserva</button>
+                </div>
+                <div id="reservas-search"></div>
+                <div class="data-table-container">
+                    <table class="data-table" id="reservas-table">
+                        <thead><tr><th>ID</th><th>Cliente</th><th>Teléfono</th><th>Personas</th><th>Fecha</th><th>Hora</th><th>Mesa</th><th>Estado</th><th>Acciones</th></tr></thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Categorías View -->
+            <section id="view-categorias" class="view">
+                <div class="view-header">
+                    <h2>Gestión de Categorías</h2>
+                    <button id="btn-create-categoria" class="btn btn-primary">+ Nueva Categoría</button>
+                </div>
+                <div class="data-table-container">
+                    <table class="data-table" id="categorias-table">
+                        <thead><tr><th>Nombre</th><th>Descripción</th><th>Productos</th><th>Acciones</th></tr></thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Productos View -->
+            <section id="view-productos" class="view">
+                <div class="view-header">
+                    <h2>Gestión de Productos</h2>
+                    <button id="btn-create-producto" class="btn btn-primary">+ Nuevo Producto</button>
+                </div>
+                <div id="productos-search"></div>
+                <div class="data-table-container">
+                    <table class="data-table" id="productos-table">
+                        <thead><tr><th>Nombre</th><th>Categoría</th><th>Precio</th><th>Disponible</th><th>Acciones</th></tr></thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Pedidos View -->
+            <section id="view-pedidos" class="view">
+                <div class="view-header">
+                    <h2>Gestión de Pedidos</h2>
+                    <button id="btn-create-pedido" class="btn btn-primary">+ Nuevo Pedido</button>
+                </div>
+                <div id="pedidos-search"></div>
+                <div class="data-table-container">
+                    <table class="data-table" id="pedidos-table">
+                        <thead><tr><th>ID</th><th>Mesa</th><th>Fecha</th><th>Hora</th><th>Total</th><th>Estado</th><th>Productos</th><th>Acciones</th></tr></thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="js/api.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/mesas.js"></script>
+    <script src="js/reservas.js"></script>
+    <script src="js/categorias.js"></script>
+    <script src="js/productos.js"></script>
+    <script src="js/pedidos.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
