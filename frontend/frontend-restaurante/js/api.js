@@ -1,9 +1,9 @@
 // Cliente API centralizado para todos los microservicios
 const API_BASE = {
-    auth: 'http://localhost/backend/ms-auth/public',
-    reservas: 'http://localhost/backend/ms-reservas/public',
-    productos: 'http://localhost/backend/ms-productos/public',
-    pedidos: 'http://localhost/backend/ms-pedidos/public'
+    auth: 'http://localhost/proyecto_final/backend/ms-auth/public',
+    reservas: 'http://localhost/proyecto_final/backend/ms-reservas/public',
+    productos: 'http://localhost/proyecto_final/backend/ms-productos/public',
+    pedidos: 'http://localhost/proyecto_final/backend/ms-pedidos/public'
 };
 
 class ApiClient {
