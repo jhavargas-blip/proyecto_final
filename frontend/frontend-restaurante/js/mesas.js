@@ -1,4 +1,7 @@
-// Módulo de gestión de mesas
+// ============================================
+// MESAS MODULE - CRUD + Estado
+// ============================================
+
 class MesasModule {
     constructor() {
         this.mesas = [];
@@ -6,19 +9,22 @@ class MesasModule {
     }
 
     async load() {
+        UI.showLoading(document.getElementById('mesas-table'), 'Cargando mesas...');
         try {
             this.mesas = await api.getMesas();
             this.render();
         } catch (e) {
             UI.showError('Error al cargar mesas: ' + e.message);
+            document.getElementById('mesas-table').innerHTML = '';
         }
     }
 
     render() {
         const columns = [
             { key: 'numero', label: 'Número' },
-            { key: 'capacidad', label: 'Capacidad' },
-            { key: 'estado', label: 'Estado', render: (row) => UI.getEstadoBadge(row.estado) }
+            { key: 'capacidad', label: 'Capacidad', render: (r) => `${r.capacidad} personas` },
+            { key: 'estado', label: 'Estado', render: (r) => UI.getEstadoBadge(r.estado) },
+            { key: 'created_at', label: 'Creada', render: (r) => UI.formatRelativeTime(r.created_at) }
         ];
 
         const actions = [
@@ -32,13 +38,13 @@ class MesasModule {
 
     openCreateModal() {
         const fields = [
-            { name: 'numero', label: 'Número/Nombre', required: true, placeholder: 'Ej: MESA-1' },
-            { name: 'capacidad', label: 'Capacidad', type: 'number', required: true, placeholder: '4' },
-            { name: 'estado', label: 'Estado inicial', type: 'select', required: true, 
-                options: this.estados.map(e => ({ value: e, label: e })) }
+            { name: 'numero', label: 'Número / Nombre', required: true, placeholder: 'Ej: MESA-5' },
+            { name: 'capacidad', label: 'Capacidad', type: 'number', required: true, placeholder: '4', value: '4' },
+            { name: 'estado', label: 'Estado inicial', type: 'select', required: true, value: 'disponible',
+                options: this.estados.map(e => ({ value: e, label: e.charAt(0).toUpperCase() + e.slice(1) })) }
         ];
 
-        UI.createFormModal('Crear Mesa', fields, async (data) => {
+        UI.createFormModal('Nueva Mesa', fields, async (data) => {
             data.capacidad = parseInt(data.capacidad);
             try {
                 await api.createMesa(data);
@@ -55,10 +61,10 @@ class MesasModule {
         if (!mesa) return;
 
         const fields = [
-            { name: 'numero', label: 'Número/Nombre', required: true, value: mesa.numero },
+            { name: 'numero', label: 'Número / Nombre', required: true, value: mesa.numero },
             { name: 'capacidad', label: 'Capacidad', type: 'number', required: true, value: mesa.capacidad },
             { name: 'estado', label: 'Estado', type: 'select', required: true, value: mesa.estado,
-                options: this.estados.map(e => ({ value: e, label: e, selected: e === mesa.estado })) }
+                options: this.estados.map(e => ({ value: e, label: e.charAt(0).toUpperCase() + e.slice(1), selected: e === mesa.estado })) }
         ];
 
         UI.createFormModal('Editar Mesa', fields, async (data) => {
@@ -79,10 +85,10 @@ class MesasModule {
 
         const fields = [
             { name: 'estado', label: 'Nuevo estado', type: 'select', required: true, value: mesa.estado,
-                options: this.estados.map(e => ({ value: e, label: e, selected: e === mesa.estado })) }
+                options: this.estados.map(e => ({ value: e, label: e.charAt(0).toUpperCase() + e.slice(1), selected: e === mesa.estado })) }
         ];
 
-        UI.createFormModal(`Cambiar estado - ${mesa.numero}`, fields, async (data) => {
+        UI.createFormModal(`Cambiar Estado: ${mesa.numero}`, fields, async (data) => {
             try {
                 await api.changeMesaState(id, data.estado);
                 UI.showSuccess('Estado actualizado correctamente');
@@ -90,22 +96,28 @@ class MesasModule {
             } catch (e) {
                 UI.showError(e.message);
             }
-        });
+        }, 'Cambiar');
     }
 
     async deleteMesa(id) {
         const mesa = this.mesas.find(m => m.id == id);
         if (!mesa) return;
 
-        UI.createModal('Eliminar Mesa', `¿Eliminar la mesa ${mesa.numero}?`, async () => {
-            try {
-                await api.deleteMesa(id);
-                UI.showSuccess('Mesa eliminada correctamente');
-                this.load();
-            } catch (e) {
-                UI.showError(e.message);
-            }
-        }, 'Eliminar');
+        UI.createModal('Eliminar Mesa', 
+            `¿Estás seguro de eliminar la mesa <strong>${this.escapeHtml(mesa.numero)}</strong>?<br><small class="text-muted">Esta acción no se puede deshacer.</small>`, 
+            async () => {
+                try {
+                    await api.deleteMesa(id);
+                    UI.showSuccess('Mesa eliminada correctamente');
+                    this.load();
+                } catch (e) {
+                    UI.showError(e.message);
+                }
+            }, 'Eliminar', 'btn-danger');
+    }
+
+    escapeHtml(text) {
+        return String(text).replace(/&/g, '&').replace(/</g, '<').replace(/>/g, '>').replace(/"/g, '"');
     }
 }
 

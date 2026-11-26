@@ -1,4 +1,7 @@
-// Cliente API centralizado para todos los microservicios
+// ============================================
+// API CLIENT - Centralized fetch wrapper
+// ============================================
+
 const API_BASE = {
     auth: 'http://localhost/proyecto_final/backend/ms-auth/public',
     reservas: 'http://localhost/proyecto_final/backend/ms-reservas/public',
@@ -9,6 +12,7 @@ const API_BASE = {
 class ApiClient {
     constructor() {
         this.token = localStorage.getItem('auth_token');
+        this.defaultTimeout = 10000; // 10s
     }
 
     setToken(token) {
@@ -22,7 +26,8 @@ class ApiClient {
 
     getHeaders() {
         const headers = {
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
         };
         if (this.token) {
             headers['Authorization'] = `Bearer ${this.token}`;
@@ -32,38 +37,70 @@ class ApiClient {
 
     async request(service, endpoint, options = {}) {
         const url = `${API_BASE[service]}${endpoint}`;
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), this.defaultTimeout);
+
         const config = {
             headers: this.getHeaders(),
+            signal: controller.signal,
             ...options
         };
 
-        if (config.body && typeof config.body === 'object') {
+        if (config.body && typeof config.body === 'object' && !(config.body instanceof FormData)) {
             config.body = JSON.stringify(config.body);
         }
 
         try {
             const response = await fetch(url, config);
-            const data = await response.json().catch(() => ({}));
+            clearTimeout(timeoutId);
+
+            // Handle 204 No Content
+            if (response.status === 204) {
+                return null;
+            }
+
+            const contentType = response.headers.get('content-type');
+            const isJson = contentType && contentType.includes('application/json');
+            const data = isJson ? await response.json() : await response.text();
 
             if (response.status === 401) {
-                this.setToken(null);
-                window.location.href = 'index.html';
-                throw new Error('Sesión expirada');
+                this.handleUnauthorized();
+                throw new Error('Sesión expirada. Por favor, inicia sesión de nuevo.');
             }
 
             if (!response.ok) {
-                throw new Error(data.error || `Error ${response.status}`);
+                const message = isJson && data.error ? data.error : `Error ${response.status}: ${response.statusText}`;
+                throw new Error(message);
             }
 
             return data;
         } catch (error) {
-            if (error.message === 'Sesión expirada') throw error;
-            console.error(`API Error [${service}${endpoint}]:`, error);
+            clearTimeout(timeoutId);
+            
+            if (error.name === 'AbortError') {
+                throw new Error('Tiempo de espera agotado. Verifica tu conexión.');
+            }
+            
+            if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+                throw new Error('No se puede conectar al servidor. Verifica que los microservicios estén corriendo.');
+            }
+            
             throw error;
         }
     }
 
-    // Auth
+    handleUnauthorized() {
+        this.setToken(null);
+        localStorage.removeItem('auth_user');
+        // Only redirect if not on login page
+        if (!window.location.pathname.includes('index.html')) {
+            setTimeout(() => {
+                window.location.href = 'index.html';
+            }, 100);
+        }
+    }
+
+    // ========== AUTH ==========
     login(identifier, password) {
         return this.request('auth', '/login', {
             method: 'POST',
@@ -83,7 +120,7 @@ class ApiClient {
         return this.request('auth', '/me');
     }
 
-    // Mesas
+    // ========== MESAS ==========
     getMesas() {
         return this.request('reservas', '/mesas');
     }
@@ -119,14 +156,17 @@ class ApiClient {
         });
     }
 
-    // Reservas
+    // ========== RESERVAS ==========
     getReservas() {
         return this.request('reservas', '/reservas');
     }
 
     searchReservas(filters) {
-        const params = new URLSearchParams(filters).toString();
-        return this.request('reservas', `/reservas/buscar?${params}`);
+        const params = new URLSearchParams();
+        Object.entries(filters).forEach(([k, v]) => {
+            if (v !== undefined && v !== '' && v !== null) params.append(k, v);
+        });
+        return this.request('reservas', `/reservas/buscar?${params.toString()}`);
     }
 
     getReserva(id) {
@@ -159,7 +199,7 @@ class ApiClient {
         });
     }
 
-    // Categorías
+    // ========== CATEGORÍAS ==========
     getCategorias() {
         return this.request('productos', '/categorias');
     }
@@ -188,14 +228,17 @@ class ApiClient {
         });
     }
 
-    // Productos
+    // ========== PRODUCTOS ==========
     getProductos() {
         return this.request('productos', '/productos');
     }
 
     searchProductos(filters) {
-        const params = new URLSearchParams(filters).toString();
-        return this.request('productos', `/productos/buscar?${params}`);
+        const params = new URLSearchParams();
+        Object.entries(filters).forEach(([k, v]) => {
+            if (v !== undefined && v !== '' && v !== null) params.append(k, v);
+        });
+        return this.request('productos', `/productos/buscar?${params.toString()}`);
     }
 
     getProducto(id) {
@@ -222,14 +265,17 @@ class ApiClient {
         });
     }
 
-    // Pedidos
+    // ========== PEDIDOS ==========
     getPedidos() {
         return this.request('pedidos', '/pedidos');
     }
 
     searchPedidos(filters) {
-        const params = new URLSearchParams(filters).toString();
-        return this.request('pedidos', `/pedidos/buscar?${params}`);
+        const params = new URLSearchParams();
+        Object.entries(filters).forEach(([k, v]) => {
+            if (v !== undefined && v !== '' && v !== null) params.append(k, v);
+        });
+        return this.request('pedidos', `/pedidos/buscar?${params.toString()}`);
     }
 
     getPedido(id) {

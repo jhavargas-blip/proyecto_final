@@ -1,126 +1,188 @@
-// Utilidades de UI: notificaciones, modales, tablas, formularios
+// ============================================
+// UI UTILITIES - Toast, Modal, Tables, Formatting
+// ============================================
+
 class UI {
-    static showToast(message, type = 'info', duration = 3000) {
-        const container = document.getElementById('toast-container') || UI.createToastContainer();
+    // ========== TOAST NOTIFICATIONS ==========
+    static showToast(message, type = 'info', duration = 4000) {
+        const container = this.getToastContainer();
         const toast = document.createElement('div');
         toast.className = `toast toast-${type}`;
         toast.innerHTML = `
-            <span>${message}</span>
-            <button class="toast-close">&times;</button>
+            <span class="toast-message">${this.escapeHtml(message)}</span>
+            <button class="toast-close" aria-label="Cerrar">&times;</button>
         `;
-        
-        toast.querySelector('.toast-close').onclick = () => toast.remove();
+
+        toast.querySelector('.toast-close').onclick = () => this.hideToast(toast);
         container.appendChild(toast);
-        
-        setTimeout(() => toast.classList.add('show'), 10);
-        setTimeout(() => {
-            toast.classList.remove('show');
-            setTimeout(() => toast.remove(), 300);
-        }, duration);
+
+        // Trigger animation
+        requestAnimationFrame(() => toast.classList.add('show'));
+
+        // Auto dismiss
+        if (duration > 0) {
+            setTimeout(() => this.hideToast(toast), duration);
+        }
+
+        return toast;
     }
 
-    static createToastContainer() {
-        const container = document.createElement('div');
-        container.id = 'toast-container';
-        container.style.cssText = `
-            position: fixed; top: 20px; right: 20px; z-index: 9999;
-            display: flex; flex-direction: column; gap: 10px;
-        `;
-        document.body.appendChild(container);
+    static getToastContainer() {
+        let container = document.getElementById('toast-container');
+        if (!container) {
+            container = document.createElement('div');
+            container.id = 'toast-container';
+            document.body.appendChild(container);
+        }
         return container;
     }
 
-    static showError(message) {
-        UI.showToast(message, 'error', 5000);
+    static hideToast(toast) {
+        toast.classList.remove('show');
+        setTimeout(() => toast.remove(), 300);
     }
 
-    static showSuccess(message) {
-        UI.showToast(message, 'success');
+    static showSuccess(message, duration) {
+        return this.showToast(message, 'success', duration);
     }
 
-    static showWarning(message) {
-        UI.showToast(message, 'warning');
+    static showError(message, duration) {
+        return this.showToast(message, 'error', duration || 6000);
     }
 
-    static createModal(title, content, onConfirm, confirmText = 'Confirmar') {
-        const modal = document.createElement('div');
-        modal.className = 'modal-overlay';
-        modal.innerHTML = `
-            <div class="modal">
+    static showWarning(message, duration) {
+        return this.showToast(message, 'warning', duration);
+    }
+
+    static showInfo(message, duration) {
+        return this.showToast(message, 'info', duration);
+    }
+
+    // ========== MODALS ==========
+    static createModal(title, content, onConfirm, confirmText = 'Confirmar', confirmClass = 'btn-primary') {
+        const overlay = document.createElement('div');
+        overlay.className = 'modal-overlay';
+        overlay.innerHTML = `
+            <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
                 <div class="modal-header">
-                    <h3>${title}</h3>
-                    <button class="modal-close">&times;</button>
+                    <h3 id="modal-title">${this.escapeHtml(title)}</h3>
+                    <button class="modal-close" aria-label="Cerrar">&times;</button>
                 </div>
                 <div class="modal-body">${content}</div>
                 <div class="modal-footer">
                     <button class="btn btn-secondary modal-cancel">Cancelar</button>
-                    <button class="btn btn-primary modal-confirm">${confirmText}</button>
+                    <button class="btn ${confirmClass} modal-confirm">${this.escapeHtml(confirmText)}</button>
                 </div>
             </div>
         `;
 
         const close = () => {
-            modal.classList.remove('show');
-            setTimeout(() => modal.remove(), 300);
+            overlay.classList.remove('show');
+            setTimeout(() => overlay.remove(), 300);
         };
 
-        modal.querySelector('.modal-close').onclick = close;
-        modal.querySelector('.modal-cancel').onclick = close;
-        modal.querySelector('.modal-confirm').onclick = () => {
+        overlay.querySelector('.modal-close').onclick = close;
+        overlay.querySelector('.modal-cancel').onclick = close;
+        overlay.querySelector('.modal-confirm').onclick = () => {
             if (onConfirm) onConfirm();
             close();
         };
-        modal.onclick = (e) => { if (e.target === modal) close(); };
+        overlay.onclick = (e) => { if (e.target === overlay) close(); };
 
-        document.body.appendChild(modal);
-        setTimeout(() => modal.classList.add('show'), 10);
-        return modal;
+        // Handle Escape key
+        const handleEsc = (e) => { if (e.key === 'Escape') { close(); document.removeEventListener('keydown', handleEsc); }};
+        document.addEventListener('keydown', handleEsc);
+
+        document.body.appendChild(overlay);
+        requestAnimationFrame(() => overlay.classList.add('show'));
+        return overlay;
     }
 
-    static createFormModal(title, fields, onSubmit) {
-        const formHtml = fields.map(f => `
-            <div class="form-group">
-                <label for="${f.name}">${f.label}${f.required ? ' *' : ''}</label>
-                <input type="${f.type || 'text'}" id="${f.name}" name="${f.name}" 
-                    ${f.required ? 'required' : ''} ${f.placeholder ? `placeholder="${f.placeholder}"` : ''}
-                    value="${f.value || ''}" ${f.readonly ? 'readonly' : ''}>
-                ${f.options ? `<select id="${f.name}" name="${f.name}" ${f.required ? 'required' : ''}>
-                    ${f.options.map(o => `<option value="${o.value}" ${o.selected ? 'selected' : ''}>${o.label}</option>`).join('')}
-                </select>` : ''}
-            </div>
-        `).join('');
-
-        return UI.createModal(title, `<form id="modal-form">${formHtml}</form>`, () => {
+    static createFormModal(title, fields, onSubmit, submitText = 'Guardar') {
+        const formHtml = fields.map(f => this.renderFormField(f)).join('');
+        
+        return this.createModal(title, `<form id="modal-form" novalidate>${formHtml}</form>`, () => {
             const form = document.getElementById('modal-form');
+            if (!form.checkValidity()) {
+                form.reportValidity();
+                return;
+            }
             const data = {};
             new FormData(form).forEach((v, k) => data[k] = v);
             onSubmit(data);
-        }, 'Guardar');
+        }, submitText);
     }
 
+    static renderFormField(field) {
+        const id = `modal-${field.name}`;
+        const required = field.required ? 'required' : '';
+        const readonly = field.readonly ? 'readonly' : '';
+        const placeholder = field.placeholder ? `placeholder="${this.escapeHtml(field.placeholder)}"` : '';
+        const value = field.value !== undefined ? `value="${this.escapeHtml(field.value)}"` : '';
+        const label = `<label for="${id}">${this.escapeHtml(field.label)}${field.required ? ' <span class="text-danger">*</span>' : ''}</label>`;
+
+        let input;
+        if (field.type === 'select' && field.options) {
+            const options = field.options.map(o => 
+                `<option value="${this.escapeHtml(o.value)}" ${o.selected ? 'selected' : ''}>${this.escapeHtml(o.label)}</option>`
+            ).join('');
+            input = `<select id="${id}" name="${field.name}" ${required} ${readonly}>${options}</select>`;
+        } else if (field.type === 'textarea') {
+            input = `<textarea id="${id}" name="${field.name}" ${required} ${readonly} ${placeholder} rows="${field.rows || 3}">${this.escapeHtml(field.value || '')}</textarea>`;
+        } else if (field.type === 'checkbox') {
+            return `
+                <div class="form-group checkbox">
+                    <input type="checkbox" id="${id}" name="${field.name}" ${field.value ? 'checked' : ''} ${readonly}>
+                    <label for="${id}">${this.escapeHtml(field.label)}</label>
+                </div>
+            `;
+        } else {
+            input = `<input type="${field.type || 'text'}" id="${id}" name="${field.name}" ${required} ${readonly} ${placeholder} ${value}>`;
+        }
+
+        return `<div class="form-group">${label}${input}</div>`;
+    }
+
+    // ========== TABLES ==========
     static renderTable(containerId, columns, data, actions = []) {
         const container = document.getElementById(containerId);
         if (!container) return;
 
-        const thead = columns.map(c => `<th>${c.label}</th>`).join('');
+        if (!data || data.length === 0) {
+            container.innerHTML = `
+                <div class="empty-state">
+                    <div class="icon">📭</div>
+                    <h3>No hay datos</h3>
+                    <p>No se encontraron registros</p>
+                </div>
+            `;
+            return;
+        }
+
+        const thead = columns.map(c => `<th>${this.escapeHtml(c.label)}</th>`).join('');
+        const actionTh = actions.length ? '<th>Acciones</th>' : '';
+
         const tbody = data.map(row => {
             const cells = columns.map(c => {
                 let value = c.render ? c.render(row) : row[c.key];
-                return `<td>${value ?? ''}</td>`;
+                return `<td>${value !== null && value !== undefined ? this.escapeHtml(value) : '<span class="text-muted">—</span>'}</td>`;
             }).join('');
             const actionCells = actions.map(a => 
-                `<td><button class="btn btn-sm ${a.class}" data-id="${row.id}" data-action="${a.action}">${a.label}</button></td>`
+                `<td><button class="btn btn-sm ${a.class || 'btn-secondary'}" data-id="${row.id}" data-action="${a.action}" title="${a.label}">${a.label}</button></td>`
             ).join('');
             return `<tr>${cells}${actionCells}</tr>`;
         }).join('');
 
         container.innerHTML = `
-            <table class="data-table">
-                <thead><tr>${thead}${actions.length ? '<th>Acciones</th>' : ''}</tr></thead>
-                <tbody>${tbody}</tbody>
-            </table>
+            <div class="data-table-container">
+                <table class="data-table">
+                    <thead><tr>${thead}${actionTh}</tr></thead>
+                    <tbody>${tbody}</tbody>
+                </table>
+            </div>
         `;
 
+        // Bind action handlers
         actions.forEach(a => {
             container.querySelectorAll(`[data-action="${a.action}"]`).forEach(btn => {
                 btn.onclick = () => a.handler(btn.dataset.id);
@@ -128,101 +190,219 @@ class UI {
         });
     }
 
-    static populateSelect(selectId, options, valueKey = 'id', labelKey = 'nombre', selectedValue = null) {
+    // ========== SELECT HELPERS ==========
+    static populateSelect(selectId, options, valueKey = 'id', labelKey = 'nombre', selectedValue = null, placeholder = 'Seleccionar...') {
         const select = document.getElementById(selectId);
         if (!select) return;
         
         const currentValue = select.value;
-        select.innerHTML = '<option value="">Seleccionar...</option>' + 
-            options.map(o => `<option value="${o[valueKey]}" ${o[valueKey] == selectedValue ? 'selected' : ''}>${o[labelKey]}</option>`).join('');
+        select.innerHTML = `<option value="">${this.escapeHtml(placeholder)}</option>` + 
+            options.map(o => {
+                const val = o[valueKey];
+                const lbl = o[labelKey];
+                const selected = val == selectedValue ? 'selected' : '';
+                return `<option value="${this.escapeHtml(val)}" ${selected}>${this.escapeHtml(lbl)}</option>`;
+            }).join('');
         select.value = currentValue;
     }
 
+    // ========== FORMATTING ==========
     static formatDate(dateStr) {
-        if (!dateStr) return '';
-        const d = new Date(dateStr);
-        return d.toLocaleDateString('es-ES');
+        if (!dateStr) return '—';
+        try {
+            const d = new Date(dateStr + 'T00:00:00');
+            return d.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
+        } catch { return dateStr; }
+    }
+
+    static formatDateTime(dateStr, timeStr) {
+        if (!dateStr) return '—';
+        try {
+            const d = new Date(dateStr + 'T' + (timeStr || '00:00:00'));
+            return d.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }) + ' ' + 
+                   d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+        } catch { return dateStr + ' ' + (timeStr || ''); }
     }
 
     static formatTime(timeStr) {
-        if (!timeStr) return '';
+        if (!timeStr) return '—';
         return timeStr.substring(0, 5);
     }
 
     static formatCurrency(value) {
-        return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(value);
+        if (value === null || value === undefined || value === '') return '—';
+        const num = typeof value === 'string' ? parseFloat(value) : value;
+        if (isNaN(num)) return '—';
+        return new Intl.NumberFormat('es-CO', { 
+            style: 'currency', 
+            currency: 'COP', 
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 0 
+        }).format(num);
+    }
+
+    static formatNumber(num) {
+        if (num === null || num === undefined) return '—';
+        return new Intl.NumberFormat('es-CO').format(num);
     }
 
     static getEstadoBadge(estado) {
+        if (!estado) return '<span class="badge badge-secondary">—</span>';
+        
         const badges = {
-            'disponible': 'badge-success',
-            'reservada': 'badge-warning',
-            'ocupada': 'badge-danger',
-            'fuera_servicio': 'badge-secondary',
-            'pendiente': 'badge-warning',
-            'confirmada': 'badge-info',
-            'cancelada': 'badge-secondary',
-            'finalizada': 'badge-success',
-            'en_preparacion': 'badge-warning',
-            'entregado': 'badge-info',
-            'pagado': 'badge-success'
+            'disponible': 'success',
+            'reservada': 'warning',
+            'ocupada': 'danger',
+            'fuera_servicio': 'secondary',
+            'pendiente': 'warning',
+            'confirmada': 'info',
+            'cancelada': 'secondary',
+            'finalizada': 'success',
+            'en_preparacion': 'warning',
+            'entregado': 'info',
+            'pagado': 'success'
         };
-        const cls = badges[estado] || 'badge-secondary';
-        return `<span class="badge ${cls}">${estado.replace('_', ' ')}</span>`;
+        
+        const cls = badges[estado] || 'secondary';
+        const label = estado.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+        return `<span class="badge badge-${cls}">${this.escapeHtml(label)}</span>`;
     }
 
+    // ========== LOADING STATES ==========
     static setLoading(btn, loading) {
+        if (!btn) return;
         if (loading) {
             btn.disabled = true;
-            btn.dataset.originalText = btn.innerHTML;
+            btn.dataset.originalHtml = btn.innerHTML;
             btn.innerHTML = '<span class="spinner"></span> Cargando...';
         } else {
             btn.disabled = false;
-            btn.innerHTML = btn.dataset.originalText || btn.innerHTML;
+            btn.innerHTML = btn.dataset.originalHtml || btn.innerHTML;
         }
+    }
+
+    static showLoading(container, message = 'Cargando...') {
+        if (!container) return;
+        container.innerHTML = `
+            <div class="loading">
+                <div class="spinner" style="width: 40px; height: 40px; border-width: 3px;"></div>
+                <span>${this.escapeHtml(message)}</span>
+            </div>
+        `;
+    }
+
+    // ========== UTILITIES ==========
+    static escapeHtml(text) {
+        if (text === null || text === undefined) return '';
+        return String(text)
+            .replace(/&/g, '&')
+            .replace(/</g, '<')
+            .replace(/>/g, '>')
+            .replace(/"/g, '"')
+            .replace(/'/g, '&#039;');
+    }
+
+    static debounce(fn, delay) {
+        let timeoutId;
+        return (...args) => {
+            clearTimeout(timeoutId);
+            timeoutId = setTimeout(() => fn(...args), delay);
+        };
+    }
+
+    static formatRelativeTime(dateStr) {
+        if (!dateStr) return '—';
+        const date = new Date(dateStr);
+        const now = new Date();
+        const diff = now - date;
+        
+        const minutes = Math.floor(diff / 60000);
+        const hours = Math.floor(diff / 3600000);
+        const days = Math.floor(diff / 86400000);
+        
+        if (minutes < 1) return 'Ahora';
+        if (minutes < 60) return `Hace ${minutes} min`;
+        if (hours < 24) return `Hace ${hours} h`;
+        if (days < 7) return `Hace ${days} día${days > 1 ? 's' : ''}`;
+        return this.formatDate(dateStr);
     }
 }
 
-// Estilos inline para toasts y modales
+// Inject base styles for toast/modal
 const style = document.createElement('style');
 style.textContent = `
-.toast { padding: 12px 20px; border-radius: 4px; display: flex; justify-content: space-between; gap: 10px; 
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15); transform: translateX(100%); opacity: 0; transition: all 0.3s; min-width: 250px; }
-.toast.show { transform: translateX(0); opacity: 1; }
-.toast-success { background: #27ae60; color: white; }
-.toast-error { background: #e74c3c; color: white; }
-.toast-warning { background: #f39c12; color: white; }
-.toast-info { background: #3498db; color: white; }
-.toast-close { background: none; border: none; color: inherit; font-size: 18px; cursor: pointer; opacity: 0.7; }
-.modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); 
-    display: flex; align-items: center; justify-content: center; z-index: 10000; opacity: 0; visibility: hidden; transition: all 0.3s; }
-.modal-overlay.show { opacity: 1; visibility: visible; }
-.modal { background: white; border-radius: 8px; width: 90%; max-width: 500px; max-height: 90vh; overflow-y: auto; 
-    transform: scale(0.9); transition: transform 0.3s; }
-.modal-overlay.show .modal { transform: scale(1); }
-.modal-header { display: flex; justify-content: space-between; align-items: center; padding: 1rem; border-bottom: 1px solid #eee; }
-.modal-close { background: none; border: none; font-size: 24px; cursor: pointer; }
-.modal-body { padding: 1rem; }
-.modal-footer { display: flex; justify-content: flex-end; gap: 10px; padding: 1rem; border-top: 1px solid #eee; }
-.form-group { margin-bottom: 1rem; }
-.form-group label { display: block; margin-bottom: 0.5rem; font-weight: 500; }
-.form-group input, .form-group select, .form-group textarea { width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 4px; }
-.data-table { width: 100%; border-collapse: collapse; }
-.data-table th, .data-table td { padding: 0.75rem; text-align: left; border-bottom: 1px solid #eee; }
-.data-table th { background: #f8f9fa; font-weight: 600; }
-.btn { padding: 0.5rem 1rem; border: none; border-radius: 4px; cursor: pointer; font-size: 0.875rem; }
-.btn-primary { background: #2c3e50; color: white; }
-.btn-secondary { background: #95a5a6; color: white; }
-.btn-danger { background: #e74c3c; color: white; }
-.btn-sm { padding: 0.25rem 0.5rem; font-size: 0.75rem; }
-.badge { padding: 0.25rem 0.5rem; border-radius: 12px; font-size: 0.75rem; font-weight: 500; }
-.badge-success { background: #d4edda; color: #155724; }
-.badge-warning { background: #fff3cd; color: #856404; }
-.badge-danger { background: #f8d7da; color: #721c24; }
-.badge-info { background: #d1ecf1; color: #0c5460; }
-.badge-secondary { background: #e2e3e5; color: #383d41; }
-.spinner { display: inline-block; width: 12px; height: 12px; border: 2px solid #fff; border-right-color: transparent; border-radius: 50%; animation: spin 1s linear infinite; margin-right: 8px; }
+/* Toast animations */
+.toast { 
+    transform: translateX(120%); 
+    opacity: 0; 
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s; 
+}
+.toast.show { 
+    transform: translateX(0); 
+    opacity: 1; 
+}
+
+/* Modal animations */
+.modal-overlay { 
+    opacity: 0; 
+    visibility: hidden; 
+    transition: opacity 0.2s, visibility 0.2s; 
+}
+.modal-overlay.show { 
+    opacity: 1; 
+    visibility: visible; 
+}
+.modal { 
+    transform: scale(0.95); 
+    transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1); 
+}
+.modal-overlay.show .modal { 
+    transform: scale(1); 
+}
+
+/* Loading spinner */
+.spinner { 
+    border: 2px solid transparent; 
+    border-top-color: currentColor; 
+    border-radius: 50%; 
+    animation: spin 0.8s linear infinite; 
+}
 @keyframes spin { to { transform: rotate(360deg); } }
+
+/* Form validation styles */
+.form-group input:invalid:not(:placeholder-shown),
+.form-group select:invalid:not(:placeholder-shown),
+.form-group textarea:invalid:not(:placeholder-shown) {
+    border-color: #e74c3c;
+}
+.form-group input:valid:not(:placeholder-shown),
+.form-group select:valid:not(:placeholder-shown) {
+    border-color: #27ae60;
+}
+
+/* Focus visible for accessibility */
+.btn:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+a:focus-visible {
+    outline: 2px solid #3498db;
+    outline-offset: 2px;
+}
+
+/* Text utilities */
+.text-muted { color: #95a5a6; }
+.text-danger { color: #e74c3c; }
+.text-success { color: #27ae60; }
+.text-primary { color: #2c3e50; }
+
+/* Animations */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.fade-in { animation: fadeIn 0.3s ease; }
 `;
 document.head.appendChild(style);
 

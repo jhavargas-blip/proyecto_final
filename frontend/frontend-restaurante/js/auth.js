@@ -1,4 +1,7 @@
-// Módulo de autenticación
+// ============================================
+// AUTH MODULE - Login, logout, session management
+// ============================================
+
 class AuthModule {
     constructor() {
         this.user = null;
@@ -10,8 +13,12 @@ class AuthModule {
         const userData = localStorage.getItem('auth_user');
         
         if (token && userData) {
-            this.user = JSON.parse(userData);
-            api.setToken(token);
+            try {
+                this.user = JSON.parse(userData);
+                api.setToken(token);
+            } catch (e) {
+                this.clearSession();
+            }
         }
     }
 
@@ -29,14 +36,21 @@ class AuthModule {
         } catch (e) {
             console.warn('Error en logout server:', e);
         }
-        this.user = null;
-        api.setToken(null);
-        localStorage.removeItem('auth_user');
+        this.clearSession();
         window.location.href = 'index.html';
     }
 
+    clearSession() {
+        this.user = null;
+        api.setToken(null);
+        localStorage.removeItem('auth_user');
+        localStorage.removeItem('auth_token');
+    }
+
     async validateSession() {
-        if (!this.user) return false;
+        if (!this.user || !localStorage.getItem('auth_token')) {
+            return false;
+        }
         
         try {
             const result = await api.validateToken();
@@ -46,7 +60,7 @@ class AuthModule {
                 return true;
             }
         } catch (e) {
-            console.warn('Token inválido:', e);
+            console.warn('Token validation failed:', e);
         }
         
         await this.logout();
@@ -54,7 +68,7 @@ class AuthModule {
     }
 
     isAuthenticated() {
-        return !!this.user;
+        return !!this.user && !!localStorage.getItem('auth_token');
     }
 
     getUser() {
@@ -73,14 +87,10 @@ class AuthModule {
         return true;
     }
 
-    renderUserInfo() {
-        const container = document.getElementById('user-info');
-        const navAuth = document.getElementById('nav-auth');
-        
-        if (this.user && container && navAuth) {
-            container.textContent = `${this.user.nombre} (${this.user.rol})`;
-            navAuth.style.display = 'flex';
-        }
+    // Only used on login page
+    renderLoginForm() {
+        const loginView = document.getElementById('login-view');
+        if (loginView) loginView.style.display = 'block';
     }
 }
 

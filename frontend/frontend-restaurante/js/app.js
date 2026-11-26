@@ -1,35 +1,11 @@
-// Router SPA simple e inicialización
+// ============================================
+// APP - Router SPA + Inicialización
+// ============================================
+
 class App {
     constructor() {
         this.currentRoute = 'dashboard';
-        // No definir routes aquí, esperar a init()
-    }
-
-    getRoutes() {
-        // Definir routes dinámicamente cuando se necesiten
-        return {
-            'dashboard': { module: null, init: () => {} },
-            'mesas': { 
-                module: () => window.mesasModule, 
-                init: () => window.mesasModule?.load() 
-            },
-            'reservas': { 
-                module: () => window.reservasModule, 
-                init: () => window.reservasModule?.load() 
-            },
-            'categorias': { 
-                module: () => window.categoriasModule, 
-                init: () => window.categoriasModule?.load() 
-            },
-            'productos': { 
-                module: () => window.productosModule, 
-                init: () => window.productosModule?.load() 
-            },
-            'pedidos': { 
-                module: () => window.pedidosModule, 
-                init: () => window.pedidosModule?.load() 
-            }
-        };
+        this.init();
     }
 
     init() {
@@ -54,6 +30,19 @@ class App {
             });
         }
 
+        // Demo credentials click-to-fill
+        document.querySelectorAll('.demo-credentials code').forEach(code => {
+            code.style.cursor = 'pointer';
+            code.onclick = () => {
+                const text = code.textContent;
+                if (text.includes('@')) {
+                    document.getElementById('username').value = text;
+                } else {
+                    document.getElementById('password').value = text;
+                }
+            };
+        });
+
         // Verificar si ya está autenticado
         this.checkAuthAndRedirect();
     }
@@ -61,26 +50,32 @@ class App {
     async checkAuthAndRedirect() {
         const isValid = await window.auth?.validateSession();
         if (isValid) {
-            // Redirigir a dashboard.html
             window.location.href = 'dashboard.html';
         } else {
-            window.auth?.renderLoginForm();
+            window.auth?.renderLoginForm?.();
         }
     }
 
     async handleLogin() {
-        const username = document.getElementById('username')?.value;
+        const username = document.getElementById('username')?.value?.trim();
         const password = document.getElementById('password')?.value;
         const errorEl = document.getElementById('login-error');
         const btn = document.querySelector('#form-login button[type="submit"]');
 
-        if (window.UI) window.UI.setLoading(btn, true);
+        if (!username || !password) {
+            if (errorEl) {
+                errorEl.textContent = 'Por favor ingrese usuario y contraseña';
+                errorEl.style.display = 'block';
+            }
+            return;
+        }
+
+        UI.setLoading(btn, true);
         if (errorEl) errorEl.style.display = 'none';
 
         try {
             await window.auth?.login(username, password);
-            if (window.UI) window.UI.showSuccess('Bienvenido, ' + window.auth?.getUser()?.nombre);
-            // Redirigir a dashboard.html
+            UI.showSuccess('Bienvenido, ' + window.auth?.getUser()?.nombre);
             window.location.href = 'dashboard.html';
         } catch (e) {
             if (errorEl) {
@@ -88,23 +83,15 @@ class App {
                 errorEl.style.display = 'block';
             }
         } finally {
-            if (window.UI) window.UI.setLoading(btn, false);
+            UI.setLoading(btn, false);
         }
     }
 
     initDashboard() {
-        // Verificar que los módulos estén disponibles
-        const requiredModules = ['mesasModule', 'reservasModule', 'categoriasModule', 'productosModule', 'pedidosModule'];
-        const missing = requiredModules.filter(m => !window[m]);
-        
-        if (missing.length > 0) {
-            console.error('Módulos faltantes:', missing);
-            // Reintentar después de un breve delay
-            setTimeout(() => this.initDashboard(), 100);
-            return;
-        }
+        // Mobile menu toggle
+        this.initMobileMenu();
 
-        // Event listeners para navegación
+        // Navigation
         document.querySelectorAll('[data-route]').forEach(link => {
             link.addEventListener('click', (e) => {
                 e.preventDefault();
@@ -112,18 +99,58 @@ class App {
             });
         });
 
-        // Botones de crear
-        document.getElementById('btn-create-mesa')?.addEventListener('click', () => window.mesasModule?.openCreateModal());
-        document.getElementById('btn-create-reserva')?.addEventListener('click', () => window.reservasModule?.openCreateModal());
-        document.getElementById('btn-create-categoria')?.addEventListener('click', () => window.categoriasModule?.openCreateModal());
-        document.getElementById('btn-create-producto')?.addEventListener('click', () => window.productosModule?.openCreateModal());
-        document.getElementById('btn-create-pedido')?.addEventListener('click', () => window.pedidosModule?.openCreateModal());
+        // Create buttons
+        const createButtons = {
+            'btn-create-mesa': () => window.mesasModule?.openCreateModal(),
+            'btn-create-reserva': () => window.reservasModule?.openCreateModal(),
+            'btn-create-categoria': () => window.categoriasModule?.openCreateModal(),
+            'btn-create-producto': () => window.productosModule?.openCreateModal(),
+            'btn-create-pedido': () => window.pedidosModule?.openCreateModal()
+        };
+
+        Object.entries(createButtons).forEach(([id, handler]) => {
+            document.getElementById(id)?.addEventListener('click', handler);
+        });
 
         // Logout
         document.getElementById('btn-logout')?.addEventListener('click', () => window.auth?.logout());
 
-        // Verificar autenticación
+        // Check auth and load
         this.checkAuthAndLoadDashboard();
+    }
+
+    initMobileMenu() {
+        // Create mobile menu button if not exists
+        if (!document.getElementById('mobile-menu-btn')) {
+            const header = document.querySelector('header');
+            if (header) {
+                const btn = document.createElement('button');
+                btn.id = 'mobile-menu-btn';
+                btn.className = 'btn btn-secondary btn-sm mobile-menu-btn';
+                btn.innerHTML = '☰';
+                btn.style.display = 'none';
+                btn.onclick = () => this.toggleMobileMenu();
+                header.querySelector('nav')?.prepend(btn);
+            }
+        }
+    }
+
+    toggleMobileMenu() {
+        const sidebar = document.querySelector('.sidebar');
+        const overlay = document.querySelector('.sidebar-overlay');
+        
+        if (sidebar) {
+            sidebar.classList.toggle('open');
+        }
+        
+        if (!overlay) {
+            const newOverlay = document.createElement('div');
+            newOverlay.className = 'sidebar-overlay';
+            newOverlay.onclick = () => this.toggleMobileMenu();
+            document.body.appendChild(newOverlay);
+        } else {
+            overlay.classList.toggle('show');
+        }
     }
 
     async checkAuthAndLoadDashboard() {
@@ -133,50 +160,71 @@ class App {
             return;
         }
         
-        window.auth?.renderDashboard();
-        window.auth?.renderUserInfo();
+        window.auth?.renderDashboard?.();
+        window.auth?.renderUserInfo?.();
         
         const hash = window.location.hash.slice(1) || 'dashboard';
         this.navigate(hash);
     }
 
     navigate(route) {
-        const routes = this.getRoutes();
-        if (!routes[route]) route = 'dashboard';
+        const validRoutes = ['dashboard', 'mesas', 'reservas', 'categorias', 'productos', 'pedidos'];
+        if (!validRoutes.includes(route)) route = 'dashboard';
         
-        // Verificar autenticación para rutas protegidas
         if (route !== 'dashboard' && !window.auth?.isAuthenticated()) {
             window.location.href = 'index.html';
             return;
         }
 
-        // Actualizar navegación activa
+        // Update active nav
         document.querySelectorAll('[data-route]').forEach(link => {
             link.classList.toggle('active', link.dataset.route === route);
         });
 
-        // Ocultar todas las vistas
+        // Show/hide views
         document.querySelectorAll('.view').forEach(view => {
             view.style.display = 'none';
+            view.classList.remove('active');
         });
 
-        // Mostrar vista solicitada
         const view = document.getElementById(`view-${route}`);
-        if (view) view.style.display = 'block';
+        if (view) {
+            view.style.display = 'block';
+            view.classList.add('active');
+        }
 
         this.currentRoute = route;
         window.location.hash = route;
 
-        // Inicializar módulo
-        const routeConfig = routes[route];
-        if (routeConfig?.init) {
-            routeConfig.init();
+        // Close mobile menu
+        document.querySelector('.sidebar')?.classList.remove('open');
+        document.querySelector('.sidebar-overlay')?.classList.remove('show');
+
+        // Initialize module
+        const modules = {
+            dashboard: () => {},
+            mesas: () => window.mesasModule?.load(),
+            reservas: () => window.reservasModule?.load(),
+            categorias: () => window.categoriasModule?.load(),
+            productos: () => window.productosModule?.load(),
+            pedidos: () => window.pedidosModule?.load()
+        };
+
+        if (modules[route]) {
+            modules[route]();
         }
     }
 }
 
-// Inicializar al cargar DOM
+// Initialize on DOM ready
 document.addEventListener('DOMContentLoaded', () => {
     window.app = new App();
-    window.app.init();
+});
+
+// Handle hash changes
+window.addEventListener('hashchange', () => {
+    if (window.app && window.location.pathname.includes('dashboard.html')) {
+        const hash = window.location.hash.slice(1);
+        if (hash) window.app.navigate(hash);
+    }
 });
